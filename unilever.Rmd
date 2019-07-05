@@ -1,0 +1,240 @@
+---
+title: "Tips to increase a profit"
+author: "Dana Yerlanova"
+date: "2019/04/05"
+output: html_document
+---
+
+##By the way, I started to work with dataset where we should provide a tips to increase the profit of company.This dataset contains information of 2016-2018 sales. Our mission is to find what kind of factors affect to the profit and what company should do to acclerate its disposal.
+
+
+###3.1 Loading libraries required and reading the data into R
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(DT)
+library(dplyr)
+library(lubridate)
+library(ggplot2)
+library(reshape2)
+```
+
+```{r pressure, echo=FALSE, fig.cap="A caption", out.width = '100%'}
+knitr::include_graphics("C://Users/dyerl/Pictures/datascience.png")
+```
+
+###Preview of dataset.
+###Mutate new column profit, which equals Fact..KZT..with.discount.- Cost.of.sales
+```{r, echo = F}
+df<-read.csv('C://Users/dyerl/Documents/table.csv', stringsAsFactors = F, encoding = 'UTF-8')
+df$Date <- mdy(df$Date)
+df$year <- year(df$Date)
+df$month <- month(df$Date)
+df$day <- day(df$Date)
+df$weekday <- weekdays(df$Date)
+options(scipen=100000)
+dim(df)
+str(df[,c(1:10, 19)])
+m<-sapply(df, function(x)sum(is.na(x)))
+m
+df<-df%>%mutate(Profit = Fact..KZT..with.discount.- Cost.of.sales)
+```
+
+###1.Plans of shop, and real profit in 2016, 2017, 2018
+```{r}
+df_year <- df%>% group_by(year)%>%summarize(meanProfit=mean(Profit), total=sum(Profit), planProfit= sum(Plan..KZT), difference = planProfit-total)
+datatable(df_year)
+options(scipen=100000)
+mydata <- data.frame(Real_with_discount=df_year$total, Predicted=df_year$planProfit)
+barplot(as.matrix(mydata), main="Real & Predicted income", ylab="Total", beside=TRUE, 
+        col=terrain.colors(3))
+legend("topright", c("2016", "2017","2018"), col=terrain.colors(3), lwd=15);
+```
+
+##2. Traffic
+```{r}
+df1<-df%>%group_by(year)%>%summarize(meanTraffic=mean(Traffic))
+ggplot(data=df1, aes(year, meanTraffic))+
+  geom_area()
+```
+
+
+#SEASON
+
+
+##1.Let's check factor month, weekday. Maybe, having low income due to seasonality?
+```{r}
+df_sale_month <- df%>%group_by(month)%>%summarize(meanProfitMonth = mean(Profit),meanTrafficM = mean(Traffic),meanCustomerM = mean(Receipt..customers.))
+df_sale_month
+ggplot(data=df_sale_month, aes(factor(month), meanProfitMonth, fill=meanProfitMonth))+
+  geom_bar(stat="identity")
+
+```
+###As a result, the most high selling month is October, the lowest is February
+
+##So, let's try to look at profit for every season:
+```{r}
+df_sale_season <- df%>%mutate(Season = ifelse(month<=2|month==12, 'Winter', ifelse(month>=3&month<=5, 'Spring',ifelse(month>=6&month<=8, 'Summer','Fall'))))
+df_season <- df_sale_season%>%group_by(Season)%>%summarize(meanP = mean(Profit),meanTr = mean(Traffic))
+df_season
+library(ggplot2)
+ggplot(data=df_season, aes(Season,meanP))+
+ geom_bar(stat="identity",fill = '#1E90FF', color ='#00008B')+
+  ggtitle('Season histogram') +
+  ylab('mean Profit for 2016-2017') + 
+  xlab('Season')
+
+
+```
+
+###The highest profit in Fall, and high traffic during Spring.
+
+##2. So, now let's check, how weekday affect to this measurements
+```{r}
+df_sale_max_days<-df%>%group_by(weekday)%>%summarize(meanProfit = mean(Profit), meanCustomer=mean(Traffic))
+ggplot(data=df_sale_max_days, aes(weekday, meanProfit, fill=meanProfit, binwidth = 1))+
+  geom_bar(stat="identity")
+ggplot(data=df_sale_max_days, aes(weekday, meanCustomer, fill=meanCustomer, binwidth = 1))+
+  geom_bar(stat="identity")
+
+```
+
+###Sunday, Saturday and Friday have the highest mean Profit and customers.
+
+#So, we can do a conclusion, that we should do discounts, use ads during winter,spring to get more traffic.Also, make good deal during workdays, like 20% discount only on Thursdays.
+
+#TRAFFIC
+
+###Now, let's analyze does discount affect to traffic of customers or not:
+```{r}
+df_discount<-df%>%mutate(Discount_show=ifelse(Average.discount<30,'>>30%',ifelse(Average.discount>=30&Average.discount<=50,'30%-50%', '<<50%')))
+df_discount_1<-df_discount%>%group_by(Discount_show)%>%summarize(AverageTraffic= mean(Traffic), Average_customer=mean(Receipt..customers.))
+ggplot(data=df, aes(Average.discount,Traffic))+
+  geom_point()+
+  geom_smooth()
+```
+###We can see that discount from 30-50% works well, we should cut discount which over 60%
+
+
+###Does high traffic mean that they become customers?
+```{r}
+ggplot(data=df, aes(Traffic, Receipt..customers.))+
+  geom_point()+
+  geom_smooth(model=lm)
+```
+### Yes, more traffic, more clients.
+
+#We should make discount range from 30-50%. Also, should work with ads.
+
+#DISCOUNT
+
+## 6. How discount changes through month and weekday?
+```{r}
+df_disc_month<-df%>%group_by(month)%>%summarize(meanDiscount=mean(Average.discount), meanProfit= mean(Profit))
+datatable(df_disc_month)
+ggplot(data=df_disc_month, aes(month, meanDiscount, fill=meanProfit))+
+  geom_bar(stat='identity')
+df_disc_weekday<-df%>%group_by(weekday)%>%summarize(meanDiscount=mean(Average.discount), meanProfit= mean(Profit))
+datatable(df_disc_weekday)
+ggplot(data=df_disc_weekday, aes(weekday, meanDiscount, fill=meanProfit))+
+  geom_bar(stat='identity')
+
+```
+## As a result, we can make a concclusion that the highest profit was in October, but it has the lowest discount average and ,medium amount of customers
+
+
+##How discount affects to the profit of company
+```{r}
+summary(df$Diff..KZT)
+summary(df$Average.discount)
+ggplot(data= df, aes(Average.discount, Diff..KZT))+
+  geom_point()+
+  geom_smooth(method='loess')
+```
+###Basicly, we see that, discount doesn't affect to the Difference.Therefore, cutting discount doesn'twork
+
+##Let's now check does having a high discount, leds to a big differeniation?
+```{r}
+options(scipen=100000)
+ggplot(data=df_discount, aes(Profit, fill= Discount_show))+
+  geom_histogram()+
+  geom_vline(xintercept = 3)
+```
+### Discount didn't cost any changes, but itss good source to make high traffic
+
+#AVERAGE PIECE PRICE
+
+##How Average price piece with Difference + выбросы
+```{r}
+ggplot(data=df%>%filter(Average.price.piece<40000),aes(Average.price.piece, Profit, color = Average.discount))+
+  geom_point()+
+   geom_smooth(method='loess')
+ggplot(data=df%>%filter(Average.price.piece<40000),aes(Average.price.piece, Fact..KZT..with.discount., color = Average.discount))+
+  geom_point()+
+   geom_smooth(method='loess')
+ggplot(data=df%>%filter(Average.price.piece<40000),aes(Average.price.piece, Fact..KZT..without.discount., color = Average.discount))+
+  geom_point()+
+   geom_smooth(method='loess')
+```
+##So we can made a conclusion that the profit increase, when Average piece price 0-10000, 15000-20000, profit increases.Therefore we should do discount to expensive items.
+
+#PRODUCTIVITY
+
+## How work worktime, productivity changes through a month? Does it affect to profit?
+```{r}
+df_day_month<-df%>%group_by(month)%>%summarize(meanTime=mean(Qty.of.hours),Profit=mean(Profit))
+ggplot(data=df_day_month, aes(factor(month), meanTime, fill=Profit))+
+  geom_bar(stat='identity')
+
+df_day_month<-df%>%group_by(month)%>%summarize(meanProductivity=mean(Productivity),Cost.of.sales=mean(Cost.of.sales))
+ggplot(data=df_day_month, aes(factor(month), meanProductivity, fill=Cost.of.sales))+
+  geom_bar(stat='identity')
+
+```
+
+### How productivity, worktime changes through weekday? Does it affect to profit?
+```{r}
+
+df_day_weekday<-df%>%group_by(weekday)%>%summarize(meanTime=mean(Qty.of.hours),Profit=mean(Profit))
+ggplot(data=df_day_weekday, aes(weekday,meanTime, fill=Profit))+
+  geom_bar(stat='identity')
+
+df_day_weekday<-df%>%group_by(weekday)%>%summarize(meanProductivity=mean(Productivity),Cost.of.sales=mean(Cost.of.sales))
+ggplot(data=df_day_weekday, aes(weekday, meanProductivity, fill=Cost.of.sales))+
+  geom_bar(stat='identity')
+
+```
+## So we can made a conclusion that productivity doesn't so much affect to the profit, but it rises cost of sales.Mean time helps to serve more customers.
+
+## How discount affect to the other measures?
+```{r}
+library(rpart)
+library(DMwR)
+library(rpart.plot)
+Discfactor <- lm(Average.discount ~  Qty.of.hours + Productivity + month+Average.price.piece+Traffic,
+                     data = df)
+Discfactor
+```
+
+###Let's see what kind of factors affect to the income.
+```{r}
+Factors <- lm(Profit ~ Average.discount + Qty.of.hours + Productivity + month+Average.price.piece+Traffic,
+                     data = df)
+Factors
+
+
+```
+
+##The hidhest profit month, might be it doesn't depend on month, month equal or not.
+```{r}
+library(lubridate)
+t.test(df$Fact..KZT..with.discount.[df$month == 10 & df$year == 2016],
+       df$Fact..KZT..with.discount.[df$month == 10 & df$year == 2017])
+
+x<- df %>% select(Fact..KZT..with.discount., month, year)%>%filter(month==3, year == 2016|year==2017)
+fligner.test(Fact..KZT..with.discount.~year, data=x)
+```
+#In conclusion:
+#1. Do discounts when there isn't seasoning Winter-Spring
+#2. Increasing traffic during Spring
+#3. Increase quantity of hours of work during weekends
+#4. Make average check 10000-15000

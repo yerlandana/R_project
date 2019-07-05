@@ -1,0 +1,8 @@
+library(lubridate)
+df<-read.csv('C://Users/dyerl/Documents/table.csv', stringsAsFactors = F)
+df$Date <- mdy(df$Date)
+df$year <- year(df$Date)
+df$month <- month(df$Date)
+df$day <- day(df$Date)
+df$weekday <- weekdays(df$Date)
+datatable(df)
