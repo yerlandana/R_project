@@ -16,16 +16,16 @@ library(dplyr)
 library(lubridate)
 library(ggplot2)
 library(reshape2)
-```
-
-```{r pressure, echo=FALSE, fig.cap="A caption", out.width = '100%'}
-knitr::include_graphics("C://Users/dyerl/Pictures/datascience.png")
+library(lubridate)
+library(rpart)
+library(DMwR)
+library(rpart.plot)
 ```
 
 ###Preview of dataset.
-###Mutate new column profit, which equals Fact..KZT..with.discount.- Cost.of.sales
+###Mutate new column Profit, which equals Fact..KZT..with.discount.- Cost.of.sales
 ```{r, echo = F}
-df<-read.csv('C://Users/dyerl/Documents/table.csv', stringsAsFactors = F, encoding = 'UTF-8')
+df<-read.csv('C://Users/dyerl/Documents/table.csv', stringsAsFactors = F)
 df$Date <- mdy(df$Date)
 df$year <- year(df$Date)
 df$month <- month(df$Date)
@@ -33,10 +33,12 @@ df$day <- day(df$Date)
 df$weekday <- weekdays(df$Date)
 options(scipen=100000)
 dim(df)
-str(df[,c(1:10, 19)])
+str(df[,c(-10:-1)])
 m<-sapply(df, function(x)sum(is.na(x)))
 m
+df$Cost.of.sales <- ifelse(is.na(df$Cost.of.sales), mean(df$Cost.of.sales, na.rm=TRUE), df$Cost.of.sales)
 df<-df%>%mutate(Profit = Fact..KZT..with.discount.- Cost.of.sales)
+tail(df$Cost.of.sales, 10)
 ```
 
 ###1.Plans of shop, and real profit in 2016, 2017, 2018
@@ -53,8 +55,7 @@ legend("topright", c("2016", "2017","2018"), col=terrain.colors(3), lwd=15);
 ##2. Traffic
 ```{r}
 df1<-df%>%group_by(year)%>%summarize(meanTraffic=mean(Traffic))
-ggplot(data=df1, aes(year, meanTraffic))+
-  geom_area()
+ggplot(data=df1, aes(year, meanTraffic))+geom_line()+geom_point()
 ```
 
 
@@ -163,7 +164,7 @@ ggplot(data=df_discount, aes(Profit, fill= Discount_show))+
 
 #AVERAGE PIECE PRICE
 
-##How Average price piece with Difference + выбросы
+##How Average price piece with Difference
 ```{r}
 ggplot(data=df%>%filter(Average.price.piece<40000),aes(Average.price.piece, Profit, color = Average.discount))+
   geom_point()+
